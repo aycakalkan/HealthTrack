@@ -1,12 +1,22 @@
+using backend.Models;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
+app.UseCors("Frontend");
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -14,28 +24,51 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
+
+var measurements = new List<Measurement>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+    new Measurement
+    {
+        Id = 1,
+        PatientName = "Demo Patient",
+        SystolicBloodPressure = 128,
+        DiastolicBloodPressure = 82,
+        HeartRate = 74,
+        BloodGlucose = 105,
+        Weight = 67.4,
+        MeasuredAt = DateTime.Now
+    },
+
+    new Measurement
+    {
+        Id = 2,
+        PatientName = "Demo Patient",
+        SystolicBloodPressure = 135,
+        DiastolicBloodPressure = 85,
+        HeartRate = 78,
+        BloodGlucose = 110,
+        Weight = 67.2,
+        MeasuredAt = DateTime.Now.AddHours(-6)
+    }
 };
 
-app.MapGet("/weatherforecast", () =>
+
+app.MapGet("/api/measurements", () =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    return measurements;
+});
+app.MapPost("/api/measurements", (Measurement measurement) =>
+{
+    measurement.Id = measurements.Count + 1;
+
+    if (measurement.MeasuredAt == default)
+    {
+        measurement.MeasuredAt = DateTime.Now;
+    }
+
+    measurements.Add(measurement);
+
+    return Results.Created($"/api/measurements/{measurement.Id}", measurement);
+});
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
